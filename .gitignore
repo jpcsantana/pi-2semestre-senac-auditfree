@@ -5,3 +5,4 @@ data/*.db
 .env
 .venv/
 .vscode/
+logs/

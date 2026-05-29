@@ -44,6 +44,8 @@ class PortScanResult:
     ip: str
     checked_at: str
     open_ports: list[tuple[int, str]] = field(default_factory=list)
+    host_responded: bool = True
+    error_message: str | None = None
 
 
 def _utc_now_iso() -> str:
@@ -97,15 +99,47 @@ def ping_host(ip: str, timeout: float = 2.0) -> PingResult:
 
 
 def scan_insecure_ports(ip: str, timeout: float = 0.5) -> PortScanResult:
+    try:
+        socket.getaddrinfo(ip, None)
+    except socket.gaierror as exc:
+        return PortScanResult(
+            ip=ip,
+            checked_at=_utc_now_iso(),
+            open_ports=[],
+            host_responded=False,
+            error_message=f"Host nao encontrado: {exc.strerror}",
+        )
+
     open_ports: list[tuple[int, str]] = []
+    host_responded = False
+
     for port, reason in INSECURE_PORTS.items():
         try:
             with socket.create_connection((ip, port), timeout=timeout):
                 open_ports.append((port, reason))
+                host_responded = True
+        except ConnectionRefusedError:
+            host_responded = True
         except OSError:
-            continue
+            pass
+
+    error_message = (
+        None if host_responded
+        else "Host nao respondeu a nenhuma tentativa de conexao. Verifique se o IP existe e esta acessivel."
+    )
     return PortScanResult(
         ip=ip,
         checked_at=_utc_now_iso(),
         open_ports=open_ports,
+        host_responded=host_responded,
+        error_message=error_message,
     )
+
+
+def lookup_hostname(ip: str) -> tuple[str | None, str | None]:
+    """Returns (hostname, error_message)."""
+    try:
+        hostname, _, _ = socket.gethostbyaddr(ip)
+        return hostname, None
+    except (socket.herror, socket.gaierror, OSError) as exc:
+        return None, str(exc)

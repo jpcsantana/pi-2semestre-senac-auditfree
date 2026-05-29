@@ -17,11 +17,10 @@ def _safe_name(name: str) -> str:
 class AuditLogger:
     def __init__(self, log_dir: Path = DEFAULT_LOG_DIR) -> None:
         self.log_dir = Path(log_dir)
-        self.programs_dir = self.log_dir / "programs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.programs_dir.mkdir(parents=True, exist_ok=True)
         self.errors_file = self.log_dir / "errors.log"
         self.audits_file = self.log_dir / "audits.log"
+        self.local_audit_file = self.log_dir / "local_audit.log"
 
     def log_audit(self, audit_type: str, target: str, summary: str) -> None:
         line = f"[{_now_iso()}] {audit_type} | alvo={target} | {summary}\n"
@@ -33,9 +32,6 @@ class AuditLogger:
         with self.errors_file.open("a", encoding="utf-8") as fh:
             fh.write(line)
 
-    def save_programs(self, machine_name: str, content: str, header: str = "") -> Path:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = self.programs_dir / f"{_safe_name(machine_name)}_{timestamp}.txt"
-        body = (header + "\n\n" if header else "") + content + "\n"
-        path.write_text(body, encoding="utf-8")
-        return path
+    def save_local_audit(self, content: str) -> Path:
+        self.local_audit_file.write_text(content, encoding="utf-8")
+        return self.local_audit_file
