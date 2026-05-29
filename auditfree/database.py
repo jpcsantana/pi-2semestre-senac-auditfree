@@ -104,6 +104,45 @@ class Database:
             conn.commit()
         return int(cursor.lastrowid)
 
+    def get_device_by_ip(self, ip: str) -> dict[str, object] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, ip, machine_name, anydesk_code, created_at,
+                       last_status, last_checked_at
+                FROM devices WHERE ip = ? LIMIT 1
+                """,
+                (ip,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def update_device(
+        self,
+        device_id: int,
+        ip: str,
+        machine_name: str,
+        anydesk_code: str | None,
+    ) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE devices SET ip = ?, machine_name = ?, anydesk_code = ? WHERE id = ?",
+                (ip, machine_name, anydesk_code, device_id),
+            )
+            conn.commit()
+
+    def update_device_name(self, device_id: int, new_name: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE devices SET machine_name = ? WHERE id = ?",
+                (new_name, device_id),
+            )
+            conn.commit()
+
+    def delete_device(self, device_id: int) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
+            conn.commit()
+
     def list_devices(self) -> list[dict[str, object]]:
         with self._connect() as conn:
             rows = conn.execute(
