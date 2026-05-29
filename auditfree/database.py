@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
 
@@ -31,8 +31,11 @@ CREATE INDEX IF NOT EXISTS idx_check_history_checked_at ON check_history(checked
 """
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+_BRT = timezone(timedelta(hours=-3))
+
+
+def _now_iso() -> str:
+    return datetime.now(_BRT).isoformat(timespec="seconds")
 
 
 class Database:
@@ -83,7 +86,7 @@ class Database:
                    COALESCE(created_at, ?), last_status, last_checked_at
             FROM _devices_old
             """,
-            (_utc_now_iso(),),
+            (_now_iso(),),
         )
         conn.execute("DROP TABLE _devices_old")
 
@@ -99,7 +102,7 @@ class Database:
                 INSERT INTO devices (ip, machine_name, anydesk_code, created_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (ip, machine_name, anydesk_code, _utc_now_iso()),
+                (ip, machine_name, anydesk_code, _now_iso()),
             )
             conn.commit()
         return int(cursor.lastrowid)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import platform
 import socket
 import subprocess
@@ -48,8 +48,11 @@ class PortScanResult:
     error_message: str | None = None
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+_BRT = timezone(timedelta(hours=-3))
+
+
+def _now_iso() -> str:
+    return datetime.now(_BRT).isoformat(timespec="seconds")
 
 
 def ping_host(ip: str, timeout: float = 2.0) -> PingResult:
@@ -70,13 +73,13 @@ def ping_host(ip: str, timeout: float = 2.0) -> PingResult:
     except subprocess.TimeoutExpired:
         return PingResult(
             status="offline",
-            checked_at=_utc_now_iso(),
+            checked_at=_now_iso(),
             error_message="Timeout ao executar ping.",
         )
     except OSError as exc:
         return PingResult(
             status="offline",
-            checked_at=_utc_now_iso(),
+            checked_at=_now_iso(),
             error_message=f"Falha ao executar ping: {exc}",
         )
 
@@ -84,7 +87,7 @@ def ping_host(ip: str, timeout: float = 2.0) -> PingResult:
     if completed.returncode == 0:
         return PingResult(
             status="online",
-            checked_at=_utc_now_iso(),
+            checked_at=_now_iso(),
             latency_ms=latency_ms,
         )
 
@@ -92,7 +95,7 @@ def ping_host(ip: str, timeout: float = 2.0) -> PingResult:
     last_line = msg.splitlines()[-1] if msg else "Host nao respondeu ao ping."
     return PingResult(
         status="offline",
-        checked_at=_utc_now_iso(),
+        checked_at=_now_iso(),
         latency_ms=latency_ms,
         error_message=last_line,
     )
@@ -104,7 +107,7 @@ def scan_insecure_ports(ip: str, timeout: float = 0.5) -> PortScanResult:
     except socket.gaierror as exc:
         return PortScanResult(
             ip=ip,
-            checked_at=_utc_now_iso(),
+            checked_at=_now_iso(),
             open_ports=[],
             host_responded=False,
             error_message=f"Host nao encontrado: {exc.strerror}",
@@ -129,7 +132,7 @@ def scan_insecure_ports(ip: str, timeout: float = 0.5) -> PortScanResult:
     )
     return PortScanResult(
         ip=ip,
-        checked_at=_utc_now_iso(),
+        checked_at=_now_iso(),
         open_ports=open_ports,
         host_responded=host_responded,
         error_message=error_message,

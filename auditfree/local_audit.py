@@ -5,7 +5,7 @@ import platform
 import socket
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 try:
     import psutil
@@ -13,6 +13,7 @@ try:
 except ImportError:
     _HAS_PSUTIL = False
 
+_BRT = timezone(timedelta(hours=-3))
 _DISK_ROOT = "C:\\" if sys.platform == "win32" else "/"
 
 
@@ -33,7 +34,7 @@ class LocalAuditResult:
 
 
 def collect_local_audit() -> LocalAuditResult:
-    captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    captured_at = datetime.now(_BRT).isoformat(timespec="seconds")
     hostname = socket.gethostname()
     os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
 

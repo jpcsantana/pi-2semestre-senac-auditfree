@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import DEFAULT_LOG_DIR
 
 
+_BRT = timezone(timedelta(hours=-3))
+
+
 def _now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now(_BRT).isoformat(timespec="seconds")
 
 
 def _safe_name(name: str) -> str:
