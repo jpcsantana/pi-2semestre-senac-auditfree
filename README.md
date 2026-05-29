@@ -1,144 +1,177 @@
-# AuditFree - Monitoramento de Disponibilidade em Rede
+# AuditFree - Auditoria de Maquinas
 
-Projeto desenvolvido com base no escopo do Projeto Integrador (2o semestre - Senac), focado em auditoria e analise de disponibilidade de dispositivos na rede corporativa.
+Projeto desenvolvido como Projeto Integrador do 2o semestre (Senac), focado em auditoria e monitoramento de maquinas em ambiente corporativo via linha de comando.
 
 ## Objetivo do sistema
 
-Cadastrar dispositivos em banco de dados, verificar disponibilidade via conexoes Socket e enviar alertas por e-mail quando houver falha de comunicacao.
+Cadastrar maquinas em banco de dados e realizar auditorias: verificacao de conectividade via ping, varredura de portas inseguras, auditoria da maquina local e validacao de registros DNS.
 
-## Requisitos atendidos do documento original
+## Dependencias
 
-- RF01: cadastro de dispositivos com identificador, IP, nome da maquina e e-mail de notificacao.
-- RF02: teste de disponibilidade com conexao Socket TCP curta.
-- RF03: historico de status (online/offline) e data/hora da verificacao no banco.
-- RF04: disparo automatico de alerta por e-mail em falha.
-- RN01: implementado em Python.
-- RN02: armazenamento em banco de dados SQLite.
-- RN03: interface em linha de comando (CLI) com menu interativo.
+```
+psutil>=5.9
+rich>=13.0
+pyfiglet>=1.0
+```
 
-## Requisitos adicionais definidos na implementacao
+Instalar:
 
-### Funcionais adicionais
-
-- RF05: verificacao em lote de todos os dispositivos cadastrados em uma unica opcao de menu.
-- RF06: consulta de historico com filtro por dispositivo e limite de registros.
-- RF07: configuracao de porta monitorada por dispositivo e timeout por execucao.
-- RF08: IDs dos dispositivos gerados automaticamente pelo banco de dados.
-
-### Nao funcionais adicionais
-
-- RN04: arquitetura em camadas simples (CLI, servico, persistencia) para manutencao facilitada.
-- RN05: uso exclusivo de biblioteca padrao do Python para reduzir custo de execucao.
-- RN06: timestamps em UTC e integridade relacional com chave estrangeira no historico.
-
-## Estrutura do projeto
-
-- auditfree/: pacote principal
-- tests/: testes automatizados
-- data/: banco SQLite local
-- docs/: documentacao e artefatos do projeto
+```bash
+pip install -r requirements.txt
+```
 
 ## Como executar
-
-1. Execute o programa:
 
 ```bash
 python main.py
 ```
 
-2. O sistema abre um menu interativo continuo.
-Selecione uma opcao, execute a funcionalidade e retorne ao menu.
-O programa so encerra quando a opcao `0` for escolhida.
+Opcoes de linha de comando (opcionais):
 
-Menu disponivel:
-
-- 1) Inicializar banco
-- 2) Cadastrar dispositivo
-- 3) Listar dispositivos
-- 4) Verificar um dispositivo
-- 5) Verificar todos os dispositivos
-- 6) Consultar historico
-- 0) Sair
-
-3. A aplicacao executa a opcao escolhida e retorna ao menu principal.
-Para encerrar, escolha a opcao `0`.
-
-## Funcionalidades do menu
-
-### 1) Inicializar banco
-
-- Cria as tabelas caso nao existam.
-- Valida a integridade da estrutura esperada.
-- Aplica migracao de esquema legado (quando necessario) para o modelo com ID automatico.
-
-### 2) Cadastrar dispositivo
-
-- Solicita IP/hostname, nome da maquina, e-mail e porta.
-- Insere o registro no SQLite com constraints de integridade.
-- Gera e exibe automaticamente o ID do dispositivo.
-
-### 3) Listar dispositivos
-
-- Mostra todos os dispositivos cadastrados.
-- Exibe ultimo status e data/hora da ultima verificacao.
-- Permite descobrir o ID automatico para uso nas demais operacoes.
-
-### 4) Verificar um dispositivo
-
-- Solicita o ID numerico do dispositivo.
-- Executa teste de disponibilidade via Socket.
-- Salva resultado no historico e atualiza ultimo status.
-- Pode enviar alerta de e-mail caso o status seja offline.
-
-### 5) Verificar todos
-
-- Executa verificacao Socket para todos os dispositivos.
-- Registra todo resultado no historico.
-- Mostra resumo final com quantidade online/offline.
-- Pode enviar alerta para cada dispositivo offline.
-
-### 6) Consultar historico
-
-- Lista historico geral ou filtrado por ID de dispositivo.
-- Permite definir limite de registros retornados.
-- Exibe status, data/hora, latencia e mensagem de erro.
-
-### 0) Sair
-
-- Finaliza a aplicacao de forma controlada.
-
-Exemplo de uso:
-
-1) Rodar `python main.py`.
-2) Escolher `2` para cadastrar e anotar o ID gerado.
-3) Escolher `4` para verificar um dispositivo pelo ID.
-4) Escolher `6` para consultar historico.
-
-## Configuracao de e-mail (SMTP)
-
-Defina as variaveis de ambiente para envio automatico de alerta:
-
-- AUDITFREE_SMTP_HOST
-- AUDITFREE_SMTP_PORT (padrao 587)
-- AUDITFREE_SMTP_FROM
-- AUDITFREE_SMTP_USER (opcional)
-- AUDITFREE_SMTP_PASS (opcional)
-- AUDITFREE_SMTP_USE_TLS (padrao true)
-- AUDITFREE_SMTP_USE_SSL (padrao false)
-
-Exemplo (PowerShell):
-
-```powershell
-$env:AUDITFREE_SMTP_HOST = "smtp.seudominio.com"
-$env:AUDITFREE_SMTP_PORT = "587"
-$env:AUDITFREE_SMTP_FROM = "auditfree@seudominio.com"
-$env:AUDITFREE_SMTP_USER = "auditfree@seudominio.com"
-$env:AUDITFREE_SMTP_PASS = "senha-app"
-$env:AUDITFREE_SMTP_USE_TLS = "true"
+```
+--db-path   Caminho do banco SQLite  (padrao: data/auditfree.db)
+--log-dir   Diretorio de logs        (padrao: logs/)
 ```
 
-## Executar testes
+## Menu principal
 
-```bash
-python -m unittest discover -s tests -p "test_*.py"
 ```
+1  Gerenciar dispositivos   cadastrar, listar, editar ou excluir maquinas
+2  Verificar conectividade  ping em uma maquina por ID
+3  Verificar todas          ping em todas as maquinas cadastradas
+4  Varredura de portas      escaneia portas inseguras conhecidas
+5  Auditoria local          audita a maquina onde o programa esta rodando
+6  Validar registros DNS    consulta hostname via IP e atualiza cadastro
+7  Historico de ping        mostra verificacoes anteriores
+0  Sair
+```
+
+## Funcionalidades
+
+### 1) Gerenciar dispositivos
+
+Submenu com CRUD completo de maquinas cadastradas:
+
+- **Cadastrar**: solicita IP/hostname, nome e codigo AnyDesk (opcional). Ao informar o IP, o sistema tenta resolver o hostname via DNS e oferece usa-lo como nome automaticamente.
+- **Listar**: exibe tabela com ID, IP, nome, AnyDesk, ultimo status e data da ultima verificacao.
+- **Editar**: permite alterar IP, nome e codigo AnyDesk de uma maquina ja cadastrada.
+- **Excluir**: remove a maquina e todo o seu historico de verificacoes (CASCADE).
+
+### 2) Verificar conectividade
+
+Executa ping em uma maquina pelo ID, registra o resultado (online/offline, latencia, erro) no banco de dados e no log de auditoria.
+
+### 3) Verificar todas
+
+Executa ping em batch para todas as maquinas cadastradas e exibe um resumo com quantidade de dispositivos online e offline.
+
+### 4) Varredura de portas inseguras
+
+Escaneia 19 portas conhecidamente inseguras na maquina alvo:
+
+| Porta | Servico |
+|------:|---------|
+| 21 | FTP |
+| 23 | Telnet |
+| 25 | SMTP sem TLS |
+| 69 | TFTP |
+| 135-139 | NetBIOS / MS RPC |
+| 445 | SMB |
+| 1433 | SQL Server |
+| 1521 | Oracle DB |
+| 2049 | NFS |
+| 3306 | MySQL |
+| 3389 | RDP |
+| 5432 | PostgreSQL |
+| 5900 | VNC |
+| 6379 | Redis |
+| 11211 | Memcached |
+| 27017 | MongoDB |
+
+Se o host nao responder a nenhuma tentativa de conexao, exibe aviso de host inacessivel em vez de falso positivo de "nenhuma porta aberta".
+
+### 5) Auditoria local
+
+Coleta informacoes da maquina onde o programa esta sendo executado:
+
+- Sistema operacional e arquitetura
+- Quantidade de CPUs e frequencia
+- Uso de RAM (total e em uso)
+- Uso de disco
+- Usuarios ativos
+- Interfaces de rede (IPv4)
+- Top 10 processos por consumo de CPU
+
+**Persistencia:** o IP e hostname da maquina local sao registrados na tabela `devices` e um check com status `online` e gravado em `check_history`. Os detalhes de hardware, processos e interfaces sao salvos apenas em `logs/local_audit.log`, que e sobrescrito a cada execucao.
+
+### 6) Validar registros DNS
+
+Executa `gethostbyaddr` sobre o IP da maquina cadastrada e exibe o hostname retornado. Caso o hostname encontrado seja diferente do nome salvo no cadastro, oferece a opcao de atualizar o registro.
+
+### 7) Historico de ping
+
+Consulta o historico de verificacoes com filtro opcional por ID de maquina e limite de registros retornados. Exibe status, data/hora, latencia e mensagem de erro quando houver.
+
+## Estrutura do projeto
+
+```
+auditfree/
+  cli.py          interface de linha de comando (menus, entrada, exibicao)
+  service.py      logica de negocio e orquestracao
+  database.py     acesso ao SQLite (dispositivos e historico)
+  network.py      ping, varredura de portas e lookup DNS
+  local_audit.py  coleta de informacoes da maquina local
+  logger.py       registro de auditorias e erros em arquivo
+  config.py       constantes de configuracao padrao
+
+data/
+  auditfree.db    banco de dados SQLite
+
+logs/
+  audits.log      registro de todas as operacoes de auditoria
+  errors.log      registro de erros e eventos criticos
+  local_audit.log ultimo resultado de auditoria local (sobrescrito)
+```
+
+## Banco de dados
+
+Duas tabelas SQLite:
+
+**devices** — maquinas cadastradas
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | INTEGER PK | identificador automatico |
+| ip | TEXT | endereco IP ou hostname |
+| machine_name | TEXT | nome da maquina |
+| anydesk_code | TEXT | codigo AnyDesk (opcional) |
+| created_at | TEXT | data de cadastro (UTC) |
+| last_status | TEXT | ultimo status: online / offline |
+| last_checked_at | TEXT | data da ultima verificacao |
+
+**check_history** — historico de verificacoes de conectividade
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | INTEGER PK | identificador automatico |
+| device_id | INTEGER FK | referencia para devices |
+| status | TEXT | online / offline |
+| checked_at | TEXT | data/hora da verificacao (UTC) |
+| latency_ms | INTEGER | latencia em milissegundos |
+| error_message | TEXT | descricao do erro, se houver |
+
+## Requisitos atendidos
+
+- RF01: cadastro de maquinas com IP, nome e identificador automatico
+- RF02: verificacao de disponibilidade via ping (ICMP)
+- RF03: historico de status com data/hora no banco de dados
+- RF04: varredura de portas inseguras com identificacao de risco
+- RF05: verificacao em lote de todas as maquinas cadastradas
+- RF06: consulta de historico com filtro por dispositivo e limite
+- RF07: auditoria da maquina local com registro em log dedicado
+- RF08: validacao e atualizacao de registros DNS
+- RN01: implementado em Python
+- RN02: armazenamento em SQLite sem dependencias externas de banco
+- RN03: interface interativa em linha de comando
+- RN04: arquitetura em camadas (CLI, servico, persistencia, rede)
+- RN05: timestamps em UTC e integridade relacional com chave estrangeira
