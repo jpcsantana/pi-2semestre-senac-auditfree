@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import socket
-import sqlite3
+
+import pyodbc
 
 from .database import Database
 from .local_audit import LocalAuditResult, collect_local_audit
@@ -26,7 +27,7 @@ class AuditService:
                 machine_name=machine_name,
                 anydesk_code=anydesk_code,
             )
-        except sqlite3.IntegrityError as exc:
+        except pyodbc.IntegrityError as exc:
             raise ValueError("Falha ao cadastrar dispositivo (restricao de integridade).") from exc
 
     def list_devices(self) -> list[dict[str, object]]:

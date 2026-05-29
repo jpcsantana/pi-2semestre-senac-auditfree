@@ -12,6 +12,8 @@ Cadastrar maquinas em banco de dados e realizar auditorias: verificacao de conec
 psutil>=5.9
 rich>=13.0
 pyfiglet>=1.0
+pyodbc>=5.0
+python-dotenv>=1.0
 ```
 
 Instalar:
@@ -19,6 +21,26 @@ Instalar:
 ```bash
 pip install -r requirements.txt
 ```
+
+O acesso ao banco usa **pyodbc**, que requer o driver **ODBC Driver 18 for SQL Server** instalado no sistema operacional. Download: https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server
+
+## Configuracao do banco (Azure SQL Database)
+
+A connection string do Azure SQL Database e injetada via variavel de ambiente `AUDITFREE_DB_CONNECTION_STRING`. O app nao possui credenciais embutidas no codigo.
+
+Em desenvolvimento, copie o arquivo de exemplo e preencha com os dados do seu servidor:
+
+```bash
+cp .env.example .env
+```
+
+```
+AUDITFREE_DB_CONNECTION_STRING="Driver={ODBC Driver 18 for SQL Server};Server=tcp:SEU-SERVIDOR.database.windows.net,1433;Database=auditfree;Uid=SEU-USUARIO;Pwd=SUA-SENHA;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+```
+
+O `.env` esta no `.gitignore` e nunca deve ser versionado. Em producao (ex: Azure App Service), defina a variavel diretamente no ambiente do servico — ela tem prioridade sobre o arquivo `.env`.
+
+As tabelas sao criadas automaticamente na primeira execucao caso ainda nao existam.
 
 ## Como executar
 
@@ -29,8 +51,7 @@ python main.py
 Opcoes de linha de comando (opcionais):
 
 ```
---db-path   Caminho do banco SQLite  (padrao: data/auditfree.db)
---log-dir   Diretorio de logs        (padrao: logs/)
+--log-dir   Diretorio de logs   (padrao: logs/)
 ```
 
 ## Menu principal
@@ -118,14 +139,13 @@ Consulta o historico de verificacoes com filtro opcional por ID de maquina e lim
 auditfree/
   cli.py          interface de linha de comando (menus, entrada, exibicao)
   service.py      logica de negocio e orquestracao
-  database.py     acesso ao SQLite (dispositivos e historico)
+  database.py     acesso ao Azure SQL via pyodbc (dispositivos e historico)
   network.py      ping, varredura de portas e lookup DNS
   local_audit.py  coleta de informacoes da maquina local
   logger.py       registro de auditorias e erros em arquivo
-  config.py       constantes de configuracao padrao
+  config.py       leitura da connection string e configuracao padrao
 
-data/
-  auditfree.db    banco de dados SQLite
+.env.example      modelo da connection string do Azure SQL
 
 logs/
   audits.log      registro de todas as operacoes de auditoria
@@ -135,30 +155,30 @@ logs/
 
 ## Banco de dados
 
-Duas tabelas SQLite:
+Azure SQL Database, acessado via **pyodbc** com queries SQL diretas no codigo (sem camada de abstracao/ORM). Duas tabelas:
 
 **devices** — maquinas cadastradas
 
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
-| id | INTEGER PK | identificador automatico |
-| ip | TEXT | endereco IP ou hostname |
-| machine_name | TEXT | nome da maquina |
-| anydesk_code | TEXT | codigo AnyDesk (opcional) |
-| created_at | TEXT | data de cadastro (UTC) |
-| last_status | TEXT | ultimo status: online / offline |
-| last_checked_at | TEXT | data da ultima verificacao |
+| id | INT IDENTITY PK | identificador automatico |
+| ip | NVARCHAR(255) | endereco IP ou hostname |
+| machine_name | NVARCHAR(255) | nome da maquina |
+| anydesk_code | NVARCHAR(255) | codigo AnyDesk (opcional) |
+| created_at | NVARCHAR(40) | data de cadastro (BRT, UTC-3) |
+| last_status | NVARCHAR(10) | ultimo status: online / offline |
+| last_checked_at | NVARCHAR(40) | data da ultima verificacao |
 
 **check_history** — historico de verificacoes de conectividade
 
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
-| id | INTEGER PK | identificador automatico |
-| device_id | INTEGER FK | referencia para devices |
-| status | TEXT | online / offline |
-| checked_at | TEXT | data/hora da verificacao (UTC) |
-| latency_ms | INTEGER | latencia em milissegundos |
-| error_message | TEXT | descricao do erro, se houver |
+| id | INT IDENTITY PK | identificador automatico |
+| device_id | INT FK | referencia para devices (ON DELETE CASCADE) |
+| status | NVARCHAR(10) | online / offline |
+| checked_at | NVARCHAR(40) | data/hora da verificacao (BRT, UTC-3) |
+| latency_ms | INT | latencia em milissegundos |
+| error_message | NVARCHAR(MAX) | descricao do erro, se houver |
 
 ## Requisitos atendidos
 
@@ -171,7 +191,8 @@ Duas tabelas SQLite:
 - RF07: auditoria da maquina local com registro em log dedicado
 - RF08: validacao e atualizacao de registros DNS
 - RN01: implementado em Python
-- RN02: armazenamento em SQLite sem dependencias externas de banco
+- RN02: armazenamento em Azure SQL Database acessado via pyodbc
 - RN03: interface interativa em linha de comando
 - RN04: arquitetura em camadas (CLI, servico, persistencia, rede)
-- RN05: timestamps em UTC e integridade relacional com chave estrangeira
+- RN05: timestamps no fuso de Brasilia (UTC-3) e integridade relacional com chave estrangeira
+- RN06: connection string injetada por variavel de ambiente, sem credenciais no codigo

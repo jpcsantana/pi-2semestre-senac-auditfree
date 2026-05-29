@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
+import pyodbc
 from pyfiglet import figlet_format
 from rich.align import Align
 from rich.console import Console
@@ -12,7 +13,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 
-from .config import DEFAULT_DB_PATH, DEFAULT_LOG_DIR
+from .config import DEFAULT_LOG_DIR, get_connection_string
 from .database import Database
 from .logger import AuditLogger
 from .network import lookup_hostname
@@ -32,11 +33,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--db-path",
-        default=str(DEFAULT_DB_PATH),
-        help="Caminho do banco SQLite (padrao: data/auditfree.db).",
-    )
-    parser.add_argument(
         "--log-dir",
         default=str(DEFAULT_LOG_DIR),
         help="Diretorio para logs de auditoria (padrao: logs/).",
@@ -44,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_header(db_path: Path, log_dir: Path) -> None:
+def _print_header(log_dir: Path) -> None:
     banner = figlet_format("AUDITFREE", font="big")
     title = Text(banner, style="bold cyan", no_wrap=True)
     subtitle = Text(
@@ -53,7 +49,7 @@ def _print_header(db_path: Path, log_dir: Path) -> None:
         justify="center",
     )
     info = Text.from_markup(
-        f"[dim]Banco:[/dim] [green]{db_path.resolve()}[/green]\n"
+        f"[dim]Banco:[/dim] [green]Azure SQL Database[/green]\n"
         f"[dim]Logs: [/dim] [green]{log_dir.resolve()}[/green]",
         justify="center",
     )
@@ -608,15 +604,26 @@ def run(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    db = Database(Path(args.db_path))
-    db.init_db()
+    try:
+        connection_string = get_connection_string()
+    except RuntimeError as exc:
+        _err(str(exc))
+        return 1
+
+    db = Database(connection_string)
+    try:
+        db.init_db()
+    except pyodbc.Error as exc:
+        _err(f"Falha ao conectar/inicializar o banco Azure SQL: {exc}")
+        return 1
+
     logger = AuditLogger(Path(args.log_dir))
     service = AuditService(db, logger)
 
     try:
         while True:
             console.clear()
-            _print_header(Path(args.db_path), Path(args.log_dir))
+            _print_header(Path(args.log_dir))
             _print_menu()
 
             option = Prompt.ask(
@@ -647,6 +654,8 @@ def run(argv: Sequence[str] | None = None) -> int:
                     _run_history(service)
             except ValueError as exc:
                 _err(str(exc))
+            except pyodbc.Error as exc:
+                _err(f"Erro no banco de dados: {exc}")
 
             _pause()
     except KeyboardInterrupt:
